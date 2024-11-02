@@ -1,0 +1,18 @@
+[package]
+name = "directory-organiser"
+authors = ["Connor Haigh"]
+description = "Directory Organiser is a command-line application for organising directories by uniqueness and removing duplicates."
+version = "0.1.0"
+edition = "2021"
+
+license = "MIT"
+repository = "https://github.com/connorhaigh/directory-organiser"
+readme = "readme.md"
+keywords = ["utility"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+clap = { version = "4.1.4", features = ["derive"] }
+md5 = "0.7.0"
+rayon = "1.6.1"
+regex = "1.6.0"
