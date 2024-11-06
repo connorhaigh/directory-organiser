@@ -11,6 +11,7 @@ use clap::{Parser, ValueEnum};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use regex::Regex;
 
+/// Performs organisation on directories.
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about)]
 struct Args {
@@ -23,36 +24,46 @@ struct Args {
 	mode: Mode,
 }
 
+/// Determines the mode of operation.
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum Mode {
-	/// Indicates that quick (shallow) comparisons of files should be performed.
-	/// Only files that appear to have not been organised, based on their name, are included in the scanning process.
+	/// Indicates that quick (shallow) comparisons of files based on their name should be performed.
 	Fast,
 
-	/// Indicates that slow (deep) comparisons of files should be performed.
-	/// All files, regardless of their name, are included in the scanning process.
+	/// Indicates that slow (deep) comparisons of files based on their entire contents should be performed.
 	Full,
 }
 
 fn main() {
 	let args = Args::parse();
 
-	match organise(&args.dir, args.mode.into()) {
+	match organise(args.dir, args.mode) {
 		Ok(()) => println!("Successfully organised directory."),
 		Err(err) => println!("Failed to organise directory: {}.", err),
 	};
 }
 
+/// Represents an organise-related error.
 #[derive(Debug)]
-pub enum OrganiseError {
+enum OrganiseError {
+	/// Indicates that the directory could not have its files listed.
 	FailedToList(io::Error),
+
+	/// Indicates that a particular file could not be read.
 	FailedToRead(io::Error),
+
+	/// Indicates that a duplicate file could not be removed.
 	FailedToRemoveDuplicate(io::Error),
+
+	/// Indicates that a new file could not be renamed.
 	FailedToRenameNew(io::Error),
+
+	/// Indicates that the last modified timestamp on an original duplicate file could not be changed.
 	FailedToSetLastModified(io::Error),
 }
 
-pub type OrganiseResult = Result<(), OrganiseError>;
+/// Represents the result of an organisation operation.
+type OrganiseResult = Result<(), OrganiseError>;
 
 impl Error for OrganiseError {}
 
@@ -68,6 +79,7 @@ impl Display for OrganiseError {
 	}
 }
 
+/// Organises the specified directory using the specified mode.
 fn organise<T>(dir: T, mode: Mode) -> OrganiseResult
 where
 	T: AsRef<Path>,
@@ -78,6 +90,8 @@ where
 	let pattern = Regex::new("^[a-f0-9]{32}$").unwrap();
 
 	let files = fs::read_dir(&dir).map_err(OrganiseError::FailedToList)?.flatten().map(|d| d.path());
+
+	// Check either every file or only the files where the name does not appear to be a hash.
 
 	#[rustfmt::skip]
 	let files: Vec<PathBuf> = match mode {
@@ -104,6 +118,7 @@ where
 	Ok(())
 }
 
+/// Attempts to process (organise) the specified file.
 fn process<T>(file: T) -> OrganiseResult
 where
 	T: AsRef<Path>,
