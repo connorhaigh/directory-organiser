@@ -46,38 +46,38 @@ fn main() {
 /// Represents an organise-related error.
 #[derive(Debug)]
 enum OrganiseError {
-	/// Indicates that the directory could not have its files listed.
-	FailedToList(io::Error),
+	/// Indicates that the directory could not be read for its files.
+	FailedToListDirectory(io::Error),
 
-	/// Indicates that a particular file could not be read.
-	FailedToRead(io::Error),
+	/// Indicates that a particular file could not be read for its contents.
+	FailedToReadFile(io::Error),
 
 	/// Indicates that a duplicate file could not be removed.
-	FailedToRemoveDuplicate(io::Error),
+	FailedToRemoveDuplicateFile(io::Error),
 
 	/// Indicates that a new file could not be renamed.
-	FailedToRenameNew(io::Error),
+	FailedToRenameNewFile(io::Error),
 
 	/// Indicates that the last modified timestamp on an original duplicate file could not be changed.
 	FailedToSetLastModified(io::Error),
 }
 
-/// Represents the result of an organisation operation.
+/// Indicates the result of an organisation operation.
 type OrganiseResult = Result<(), OrganiseError>;
-
-impl Error for OrganiseError {}
 
 impl Display for OrganiseError {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
-			Self::FailedToList(e) => write!(f, "failed to list files [{}]", e),
-			Self::FailedToRead(e) => write!(f, "failed to read file [{}]", e),
-			Self::FailedToRemoveDuplicate(e) => write!(f, "failed to remove duplicate file [{}]", e),
-			Self::FailedToRenameNew(e) => write!(f, "failed to rename new file [{}]", e),
+			Self::FailedToListDirectory(e) => write!(f, "failed to list files [{}]", e),
+			Self::FailedToReadFile(e) => write!(f, "failed to read file [{}]", e),
+			Self::FailedToRemoveDuplicateFile(e) => write!(f, "failed to remove duplicate file [{}]", e),
+			Self::FailedToRenameNewFile(e) => write!(f, "failed to rename new file [{}]", e),
 			Self::FailedToSetLastModified(e) => write!(f, "failed to set last modified time on file [{}]", e),
 		}
 	}
 }
+
+impl Error for OrganiseError {}
 
 /// Organises the specified directory using the specified mode.
 fn organise<T>(dir: T, mode: Mode) -> OrganiseResult
@@ -89,7 +89,7 @@ where
 	let start = Instant::now();
 	let pattern = Regex::new("^[a-f0-9]{32}$").unwrap();
 
-	let files = fs::read_dir(&dir).map_err(OrganiseError::FailedToList)?.flatten().map(|d| d.path());
+	let files = fs::read_dir(&dir).map_err(OrganiseError::FailedToListDirectory)?.flatten().map(|d| d.path());
 
 	// Check either every file or only the files where the name does not appear to be a hash.
 
@@ -123,7 +123,7 @@ fn process<T>(file: T) -> OrganiseResult
 where
 	T: AsRef<Path>,
 {
-	let contents = fs::read(&file).map_err(OrganiseError::FailedToRead)?;
+	let contents = fs::read(&file).map_err(OrganiseError::FailedToReadFile)?;
 
 	let checksum = format!("{:x}", md5::compute(contents));
 	let checksum_file = {
@@ -137,12 +137,12 @@ where
 		return Ok(());
 	}
 
-	if checksum_file.try_exists().map_err(OrganiseError::FailedToRead)? {
+	if checksum_file.try_exists().map_err(OrganiseError::FailedToReadFile)? {
 		println!("Deleting duplicate file <{}>...", file.as_ref().display());
 
 		let time = file.as_ref().metadata().and_then(|m| m.modified()).unwrap_or(SystemTime::now());
 
-		fs::remove_file(file).map_err(OrganiseError::FailedToRemoveDuplicate)?;
+		fs::remove_file(file).map_err(OrganiseError::FailedToRemoveDuplicateFile)?;
 
 		File::options()
 			.write(true)
@@ -152,7 +152,7 @@ where
 	} else {
 		println!("Organising new file <{}>...", file.as_ref().display());
 
-		fs::rename(file, checksum_file).map_err(OrganiseError::FailedToRenameNew)?;
+		fs::rename(file, checksum_file).map_err(OrganiseError::FailedToRenameNewFile)?;
 	}
 
 	Ok(())
